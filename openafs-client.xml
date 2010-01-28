@@ -1,10 +1,7 @@
 <?xml version="1.0"?>
 <!DOCTYPE service_bundle SYSTEM "/usr/share/lib/xml/dtd/service_bundle.dtd.1">
 <!--
-    Copyright 2005 Coy Hile  All rights reserved.
-    Use is subject to license terms.
-
-    ident	"@(#)openafs-client.xml	1.5	05/10/24"
+	$Id$
 -->
 <service_bundle type='manifest' name='openafs:client'>
 
