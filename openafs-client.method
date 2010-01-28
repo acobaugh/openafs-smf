@@ -1,0 +1,152 @@
+#!/bin/sh
+
+. /lib/svc/share/smf_include.sh
+
+BOOLPROPS="afsdb dynroot nosettime fakestat"
+INTPROPS="stat dcache daemons volumes chunksize"
+PREFIX="/opt/bx"
+SYSCONFDIR="/etc/opt/bx"
+RAMDISK=`svcprop -p OpenAFS/ramdisk svc:/bx/network/openafs/client`
+SUID=`svcprop -p OpenAFS/suidthiscell svc:/bx/network/openafs/client`
+
+case "$1" in
+start)
+	#
+	# Make sure an entry for afs exists in /etc/name_to_sysnum. If not,
+	# add it and bail until the system is rebooted.
+	#
+	if grep -s "^afs" /etc/name_to_sysnum > /dev/null; then
+	    echo "Entry for afs already exists in /etc/name_to_sysnum"
+	else
+	    echo "Creating entry for afs in /etc/name_to_sysnum"
+	    cp /etc/name_to_sysnum /etc/name_to_sysnum.pre.openafs-client
+	    sed '/tasksys/i\
+afs			65' /etc/name_to_sysnum.pre.openafs-client > /etc/name_to_sysnum
+	    echo "You must reboot for the new /etc/name_to_sysnum to take effect"
+	    exit $SMF_EXIT_ERR_CONFIG
+	fi
+
+	# Check that /bin/isalist is executable
+	if [ ! -x /bin/isalist ]; then
+		echo "/bin/isalist is not executable; skipping startup"
+		exit $SMF_EXIT_ERR_FATAL
+	fi
+
+	# Determine the right location for the kernel module and load it
+	case `/bin/isalist` in
+		*amd64* )
+			afs=/kernel/fs/amd64/afs
+			;;
+		*sparcv9* )
+			afs=/kernel/fs/sparcv9/afs
+			;;
+		* )
+			afs=/kernel/fs/afs
+			;;
+	esac
+
+	if [ -f $afs ]; then
+		echo "Loading AFS kernel module"
+		modload $afs
+		if [ $? -ne 0 ]; then
+			echo "Failed to load kernel module"
+			exit $SMF_EXIT_ERR_FATAL
+		fi
+	else
+		echo "$afs does not exist. skipping AFS startup"
+		exit $SMF_EXIT_ERR_CONFIG
+	fi
+
+	# Set up afsd options and start the bosserver.
+	AFSDOPTIONS=
+	for opt in $BOOLPROPS; do
+		val=`svcprop -p OpenAFS/$opt svc:/bx/network/openafs/client`
+		if [ "$val" = true ]; then
+			AFSDOPTIONS="$AFSDOPTIONS -$opt"
+		fi
+	done
+	for opt in $INTPROPS; do
+		val=`svcprop -p OpenAFS/$opt svc:/bx/network/openafs/client`
+		if [ "$val" -gt 0 ]; then
+			AFSDOPTIONS="$AFSDOPTIONS -$opt $val"
+		fi
+	done
+
+	# Check that the root directory for AFS and the client cache 
+	# directories both exist
+	#
+	for dir in `/usr/bin/awk -F: '{print $1,$2}' $SYSCONFDIR/openafs/cacheinfo `
+	do
+		if [ ! -d ${dir} ];  then
+			mkdir -p ${dir}
+			if [ $? -ne 0 ]; then
+				echo "Failed to create $dir. Not starting AFS client"
+				exit $SMF_EXIT_ERR_CONFIG
+			fi
+		fi
+	done
+
+	#
+	# Create a ramdisk if we plan to use one for the cache
+	#
+	if [ "$RAMDISK" = true ]; then
+
+		cachedir=`/usr/bin/awk -F: '{print $2}' $SYSCONFDIR/openafs/cacheinfo `
+		cachesize=`/usr/bin/awk -F: '{print $3}' $SYSCONFDIR/openafs/cacheinfo `
+		rddev='/dev/ramdisk/openafs-client'
+
+		mount | /usr/xpg4/bin/grep -q "^$cachedir "
+		if [ $? -ne 0 ]; then
+			 echo "Configuring ramdisk"
+			 # If the ramdisk doesn't exist, create it
+			 #if [ ! -d /dev/ramdisk -o ! -h $rddev ]; then
+				  rdsize=`echo $cachesize/.85 | bc`
+				  echo "ramdiskadm -a openafs-client ${rdsize}k"
+				  ramdiskadm -a openafs-client ${rdsize}k
+				  if [ $? -ne 0 ]; then
+						 echo "ramdiskadm failed"
+				  fi
+			 #fi
+			 # If it doesn't have an fs, newfs it
+			 rdfs=`fstyp $rddev`
+			 if [ "$rdfs" != "ufs" ]; then
+				  newfs $rddev </dev/null
+				  if [ $? -ne 0 ]; then
+						 echo "newfs failed"
+				  fi
+			 fi
+			 # Mount it
+			 mount -o nologging $rddev $cachedir
+			 if [ $? -ne 0 ]; then
+					echo "mount failed"
+					echo "falling back to disk-based cache under $cachedir"
+			 fi
+		else
+			echo "Ramdisk already mounted under $cachedir"
+		fi
+	fi
+
+	echo "Starting afsd"
+	$PREFIX/sbin/afsd $AFSDOPTIONS
+
+	if [ "$SUID" = "true" ]; then
+		 $PREFIX/bin/fs setcell `cat $SYSCONFDIR/openafs/ThisCell` -suid
+	fi
+
+# end of start method
+;;
+
+stop)
+	echo "Flushing AFS cache"
+	$PREFIX/bin/fs setcachesize 1
+	echo "Shutting down AFS client processes"
+	cd /
+	umount /afs
+	$PREFIX/sbin/afsd -shutdown
+
+;;
+*)
+	echo "Usage: $0 {start|stop}"
+	exit 1
+	;;
+esac
