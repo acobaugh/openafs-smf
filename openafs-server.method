@@ -1,0 +1,52 @@
+#!/bin/sh
+
+#
+# $Id: openafs-server.method 3 2009-07-22 17:54:16Z phalenor $
+#
+
+. /lib/svc/share/smf_include.sh
+
+BOOLPROPS="noauth"
+INTPROPS=""
+PREFIX="/opt/bx"
+SYSCONFDIR="/etc/opt/bx"
+LOCALSTATEDIR="/var/opt/bx"
+
+case "$1" in
+start)
+
+	# set permissions just in case
+	chmod 700 $LOCALSTATEDIR/openafs
+	chmod 755 $LOCALSTATEDIR/openafs/logs
+	chmod 700 $SYSCONFDIR/openafs/server/KeyFile
+
+	# get arguments from smf to pass to bosserver
+	for opt in $BOOLPROPS; do
+		val=`svcprop -p bosserver_args/$opt svc:/bx/network/openafs/server`
+		if [ "$val" = true ]; then
+			BOSSERVER_ARGS="$BOSSERVER_ARGS -$opt"
+		fi
+	done
+	for opt in $INTPROPS; do
+		val=`svcprop -p bosserver_args/$opt svc:/bx/network/openafs/server`
+		if [ "$val" -gt 0 ]; then
+			BOSSERVER_ARGS="$BOSSERVER_ARGS -$opt $val"
+		fi
+	done
+
+	echo "Starting bosserver"
+	$PREFIX/sbin/bosserver $BOSSERVER_ARGS
+
+# end of start method
+;;
+
+stop)
+	echo "Stopping bosserver"
+	$PREFIX/bin/bos shutdown localhost -localauth -wait
+	pkill bosserver
+;;
+*)
+	echo "Usage: $0 {start|stop}"
+	exit 1
+	;;
+esac

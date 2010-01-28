@@ -1,0 +1,106 @@
+<?xml version="1.0"?>
+<!DOCTYPE service_bundle SYSTEM "/usr/share/lib/xml/dtd/service_bundle.dtd.1">
+<!--
+    $Id$
+-->
+<service_bundle type='manifest' name='openafs:server'>
+
+	<service	name='bx/network/openafs/server'
+		type='service'
+		version='1'>
+
+		<create_default_instance enabled='false' />
+
+		<dependency	name='filesystem'
+			grouping='require_all'
+			restart_on='none'
+			type='service'>
+			<service_fmri value='svc:/system/filesystem/local' />
+		</dependency>
+
+		<dependency name='net-physical'
+			grouping='require_all'
+			restart_on='none'
+			type='service'>
+			<service_fmri value='svc:/network/physical' />
+		</dependency>
+
+		<dependency	name='bosserver'
+			grouping='require_all'
+			restart_on='none'
+			type='path'>
+				 <service_fmri 
+				 value='file://localhost/opt/bx/sbin/bosserver' />
+		</dependency> 
+
+		<dependency	name='server_ThisCell'
+			grouping='require_all'
+			restart_on='none'
+			type='path'>
+				 <service_fmri 
+					 value='file://localhost/etc/opt/bx/openafs/server/ThisCell' />
+		</dependency> 
+
+		<dependency	name='server_CellServDB'
+			grouping='require_all'
+			restart_on='none'
+			type='path'>
+				 <service_fmri 
+					 value='file://localhost/etc/opt/bx/openafs/server/CellServDB' />
+		</dependency>
+
+		<dependency	name='KeyFile'
+			grouping='require_all'
+			restart_on='none'
+			type='path'>
+				 <service_fmri 
+					 value='file://localhost/etc/opt/bx/openafs/server/KeyFile' />
+		</dependency>
+		
+		<dependency	name='localstatedir'
+			grouping='require_all'
+			restart_on='none'
+			type='path'>
+				 <service_fmri 
+					 value='file://localhost/var/opt/bx/openafs/' />
+		</dependency>
+		
+		<dependency	name='logdir'
+			grouping='require_all'
+			restart_on='none'
+			type='path'>
+				 <service_fmri 
+					 value='file://localhost/var/opt/bx/openafs/logs/' />
+		</dependency>
+		
+		<dependent name='afsserver_multi-user-server'
+			grouping='optional_all'
+			restart_on='none'>
+			<service_fmri value='svc:/milestone/multi-user-server' />
+		</dependent>
+		
+		<exec_method name='start'
+			type='method'
+			exec='/opt/bx/sbin/openafs-server.method start'
+			timeout_seconds='300' />
+
+		<exec_method name='stop'
+			type='method'
+			exec='/opt/bx/sbin/openafs-server.method stop'
+			timeout_seconds='60' />
+
+		<property_group name='bosserver_args' type='application'>
+			<stability value='Unstable' />
+			<propval name='noauth' type='boolean' value='false' />
+		</property_group>
+
+		<template>
+			<common_name>
+				<loctext xml:lang='C'>
+				OpenAFS server
+				</loctext>
+			</common_name>
+		</template>
+	</service>
+
+</service_bundle>
