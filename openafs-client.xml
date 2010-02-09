@@ -1,0 +1,108 @@
+<?xml version="1.0"?>
+<!DOCTYPE service_bundle SYSTEM "/usr/share/lib/xml/dtd/service_bundle.dtd.1">
+<!--
+	$Id$
+-->
+<service_bundle type='manifest' name='openafs:client'>
+
+<service
+	name='bx/network/openafs/client'
+	type='service'
+	version='1'>
+
+	<create_default_instance enabled='false' />
+
+	<dependency
+		name='fs'
+		grouping='require_all'
+		restart_on='none'
+		type='service'>
+		<service_fmri value='svc:/system/filesystem/minimal' />
+	</dependency>
+
+	<dependency
+		name='afsd'
+		grouping='require_all'
+		restart_on='none'
+		type='path'>
+		    <service_fmri 
+			 value='file://localhost/opt/bx/sbin/afsd' />
+	</dependency> 
+
+	<dependency
+		name='ThisCell'
+		grouping='require_all'
+		restart_on='none'
+		type='path'>
+		    <service_fmri 
+			 value='file://localhost/etc/opt/bx/openafs/ThisCell' />
+	</dependency> 
+
+	<dependency
+		name='CellServDB'
+		grouping='require_all'
+		restart_on='none'
+		type='path'>
+		    <service_fmri 
+			 value='file://localhost/etc/opt/bx/openafs/CellServDB' />
+	</dependency>
+
+	<dependency
+		name='cacheinfo'
+		grouping='require_all'
+		restart_on='none'
+		type='path'>
+		    <service_fmri 
+			 value='file://localhost/etc/opt/bx/openafs/cacheinfo' />
+	</dependency>
+	
+	<!--
+		Make svc:/system/zones depend on OpenAFS client.  This
+		is necessary so that any zones that are pseudo AFS clients
+		can see /afs
+	-->
+	<dependent
+		name='zones'
+		grouping='require_all'
+		restart_on='none'>
+			<service_fmri
+			   value='svc:/system/zones' />
+	</dependent>
+
+	<exec_method
+		type='method'
+		name='start'
+		exec='/opt/bx/sbin/openafs-client.method start'
+		timeout_seconds='300' />
+
+	<exec_method
+		type='method'
+		name='stop'
+		exec='/opt/bx/sbin/openafs-client.method stop'
+		timeout_seconds='60' />
+
+	<property_group name='OpenAFS' type='application'>
+		<stability value='Unstable' />
+		<propval name='afsdb' type='boolean' value='true' />
+		<propval name='dynroot' type='boolean' value='true' />
+		<propval name='nosettime' type='boolean' value='true' />
+		<propval name='fakestat' type='boolean' value='true' />
+		<propval name='stat' type='integer' value='4800' />
+		<propval name='dcache' type='integer' value='3600' />
+		<propval name='daemons' type='integer' value='12' />
+		<propval name='volumes' type='integer' value='512' />
+		<propval name='chunksize' type='integer' value='16' />
+		<propval name='ramdisk' type='boolean' value='false' />
+		<propval name='suidthiscell' type='boolean' value='false' />
+	</property_group>
+
+	<template>
+		<common_name>
+			<loctext xml:lang='C'>
+			OpenAFS client
+			</loctext>
+		</common_name>
+	</template>
+</service>
+
+</service_bundle>
