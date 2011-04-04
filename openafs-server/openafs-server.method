@@ -41,9 +41,11 @@ start)
 ;;
 
 stop)
-	echo "Stopping bosserver"
-	$PREFIX/bin/bos shutdown localhost -localauth -wait
-	pkill bosserver
+	if [ -n "`pgrep bosserver`" ] ; then
+		echo "Stopping bosserver"
+		$PREFIX/bin/bos shutdown localhost -localauth -wait
+		pkill bosserver
+	fi
 ;;
 *)
 	echo "Usage: $0 {start|stop}"
