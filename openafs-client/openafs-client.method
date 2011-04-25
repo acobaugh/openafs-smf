@@ -141,12 +141,16 @@ afs			65' /etc/name_to_sysnum.pre.openafs-client > /etc/name_to_sysnum
 ;;
 
 stop)
-	echo "Flushing AFS cache"
-	$PREFIX/bin/fs setcachesize 1
-	echo "Shutting down AFS client processes"
-	cd /
-	umount /afs
-	$PREFIX/sbin/afsd -shutdown
+	if [ -n "`pgrep afsd`" ]; then
+		echo "Flushing AFS cache"
+		$PREFIX/bin/fs setcachesize 1
+		echo "Shutting down AFS client processes"
+		cd /
+		umount /afs
+		$PREFIX/sbin/afsd -shutdown
+	else
+		echo "afsd not running, not stopping"
+	fi
 
 ;;
 *)
